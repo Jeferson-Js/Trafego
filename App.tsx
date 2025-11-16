@@ -3,14 +3,14 @@ import React, { useState, useCallback } from 'react';
 import { InputForm } from './components/InputForm';
 import { ResultsDisplay } from './components/ResultsDisplay';
 import { generateMarketingPlan, translateText } from './services/geminiService';
-import type { FormState } from './types';
+import type { FormState, GeneratedPlan } from './types';
 
 function App() {
   const [formState, setFormState] = useState<FormState>({ niche: 'digital art prints', price: '25', goal: '1000' });
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isTranslating, setIsTranslating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [generatedPlan, setGeneratedPlan] = useState<string | null>(null);
+  const [generatedPlan, setGeneratedPlan] = useState<GeneratedPlan | null>(null);
   const [translatedPlan, setTranslatedPlan] = useState<string | null>(null);
   const [isShowingOriginal, setIsShowingOriginal] = useState<boolean>(true);
 
@@ -36,8 +36,8 @@ function App() {
 
     try {
       const plan = await generateMarketingPlan(formState.niche, price, goal);
-      if(plan.startsWith("Error:")) {
-        setError(plan);
+      if(plan.text.startsWith("Error:")) {
+        setError(plan.text);
         setGeneratedPlan(null);
       } else {
         setGeneratedPlan(plan);
@@ -52,13 +52,13 @@ function App() {
   }, [formState]);
   
   const handleTranslate = useCallback(async (language: string) => {
-    if (!generatedPlan || !language) return;
+    if (!generatedPlan?.text || !language) return;
 
     setIsTranslating(true);
     setError(null);
 
     try {
-      const translation = await translateText(generatedPlan, language);
+      const translation = await translateText(generatedPlan.text, language);
       if (translation.startsWith("Error:")) {
         setError(translation);
       } else {

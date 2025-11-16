@@ -3,9 +3,10 @@ import React, { useMemo, useState } from 'react';
 import { SectionCard } from './SectionCard';
 import { LoadingSpinner } from './LoadingSpinner';
 import { getIconForTitle, InfoIcon, ErrorIcon } from './icons';
+import type { GeneratedPlan } from '../types';
 
 interface ResultsDisplayProps {
-  plan: string | null;
+  plan: GeneratedPlan | null;
   translatedPlan: string | null;
   isLoading: boolean;
   isTranslating: boolean;
@@ -28,7 +29,7 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
   const [targetLanguage, setTargetLanguage] = useState('');
 
   const sections = useMemo(() => {
-    const contentToParse = isShowingOriginal ? plan : translatedPlan;
+    const contentToParse = isShowingOriginal ? plan?.text : translatedPlan;
     if (!contentToParse) return [];
     
     return contentToParse.split('\n## ').filter(s => s.trim() !== '').map(sectionText => {
@@ -37,14 +38,14 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
       const content = parts.slice(1).join('\n').trim();
       return { title, content };
     });
-  }, [plan, translatedPlan, isShowingOriginal]);
+  }, [plan?.text, translatedPlan, isShowingOriginal]);
 
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[400px] bg-white/5 backdrop-blur-md rounded-xl p-8 border border-white/10">
         <LoadingSpinner />
-        <p className="mt-4 text-lg text-gray-300">CopyCraft AI is thinking...</p>
-        <p className="mt-2 text-sm text-gray-400">This may take a moment.</p>
+        <p className="mt-4 text-lg text-gray-300">CopyCraft AI is crafting your plan...</p>
+        <p className="mt-2 text-sm text-gray-400">This includes generating unique ad images and may take a moment.</p>
       </div>
     );
   }
@@ -114,11 +115,36 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
           </button>
         )}
       </div>
-      {sections.map((section) => (
-        <SectionCard key={section.title} title={section.title} icon={getIconForTitle(section.title)}>
-          {section.content}
-        </SectionCard>
-      ))}
+      {sections.map((section) => {
+        if (section.title.toLowerCase().includes('ad copy') && plan?.images && plan.images.length > 0 && isShowingOriginal) {
+          const adCopies = section.content.split(/(?=Ad Copy \d+:)/).filter(s => s.trim());
+          return (
+            <SectionCard key={section.title} title={section.title} icon={getIconForTitle(section.title)}>
+              {adCopies.map((copy, index) => (
+                <div key={index} className={index < adCopies.length - 1 ? "mb-8 pb-8 border-b border-white/20" : ""}>
+                  <div className="whitespace-pre-wrap font-light leading-relaxed">{copy.trim()}</div>
+                  {plan.images[index] && (
+                    <div className="mt-4">
+                      <p className="text-sm font-semibold text-blue-300 mb-2">Generated Ad Image:</p>
+                      <img 
+                        src={plan.images[index]} 
+                        alt={`Generated ad creative for Ad Copy ${index + 1}`}
+                        className="rounded-lg w-full object-cover shadow-lg border-2 border-blue-500/50" 
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </SectionCard>
+          );
+        }
+
+        return (
+            <SectionCard key={section.title} title={section.title} icon={getIconForTitle(section.title)}>
+              {section.content}
+            </SectionCard>
+        );
+      })}
     </div>
   );
 };

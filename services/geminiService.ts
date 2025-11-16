@@ -1,4 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
+import type { GeneratedPlan } from '../types';
 
 const API_KEY = process.env.API_KEY;
 
@@ -9,7 +10,34 @@ if (!API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: API_KEY! });
 
-export const generateMarketingPlan = async (niche: string, price: number, goal: number): Promise<string> => {
+const generateAdImage = async (prompt: string): Promise<string> => {
+  try {
+    const imagePrompt = `A visually stunning, high-resolution, professional marketing image for an advertisement. The image should feature: ${prompt}`;
+    
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: {
+        parts: [{ text: imagePrompt }],
+      },
+      config: {
+        responseModalities: [Modality.IMAGE],
+      },
+    });
+
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        const base64ImageBytes: string = part.inlineData.data;
+        return `data:image/png;base64,${base64ImageBytes}`;
+      }
+    }
+    throw new Error("No image data found in response.");
+  } catch (error) {
+    console.error(`Error generating image for prompt "${prompt}":`, error);
+    throw error;
+  }
+};
+
+export const generateMarketingPlan = async (niche: string, price: number, goal: number): Promise<GeneratedPlan> => {
   const prompt = `
 You are “CopyCraft AI”, a high-performance marketing assistant designed to help users generate persuasive advertising copy, creative concepts, traffic investment recommendations, and a clear step-by-step plan for selling digital or physical products in any niche.
 
@@ -29,7 +57,7 @@ A detailed explanation of the niche and why people buy in that niche.
 Explain the ideal audience for this niche.
 
 ## Persuasive Ad Copy
-Four persuasive advertising copies adapted to the provided niche. For each copy, include a visual sentence, an auditory sentence, and a kinesthetic sentence. Format each copy clearly with titles like "Ad Copy 1:", "Ad Copy 2:", etc.
+Four persuasive advertising copies adapted to the provided niche. For each copy, include a visual sentence, an auditory sentence, and a kinesthetic sentence. Format each copy clearly with titles like "Ad Copy 1:", "Ad Copy 2:", etc. Crucially, start each description with "Visual sentence:", "Auditory sentence:", and "Kinesthetic sentence:".
 
 ## Creative Ad Concepts
 A simple creative idea for ads: short video concepts, image ideas, and hook suggestions.
@@ -70,19 +98,43 @@ Your tone must be clear, direct, and professional, but also persuasive and pract
 `;
 
   try {
-    const response = await ai.models.generateContent({
+    const textResponse = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
     });
     
-    return response.text;
+    const textPlan = textResponse.text;
+
+    if (!textPlan) {
+      throw new Error("Failed to generate text plan.");
+    }
+
+    const visualPrompts: string[] = [];
+    const adCopyRegex = /Visual sentence: (.*?)\n/gi;
+    let match;
+    while ((match = adCopyRegex.exec(textPlan)) !== null) {
+      visualPrompts.push(match[1].trim());
+    }
+
+    let images: string[] = [];
+    if (visualPrompts.length > 0) {
+      try {
+        const imagePromises = visualPrompts.map(p => generateAdImage(p));
+        images = await Promise.all(imagePromises);
+      } catch (imageError) {
+        console.warn("Failed to generate one or more images, but returning text plan.", imageError);
+        images = [];
+      }
+    }
+    
+    return { text: textPlan, images };
 
   } catch (error) {
     console.error("Error generating marketing plan:", error);
     if (error instanceof Error) {
-        return `Error: An error occurred while generating the plan. Details: ${error.message}`;
+        return { text: `Error: An error occurred while generating the plan. Details: ${error.message}`, images: [] };
     }
-    return "Error: An unknown error occurred while generating the plan.";
+    return { text: "Error: An unknown error occurred while generating the plan.", images: [] };
   }
 };
 

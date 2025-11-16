@@ -9,3 +9,8 @@ export interface PlanSection {
   title: string;
   content: string;
 }
+
+export interface GeneratedPlan {
+  text: string;
+  images: string[];
+}
