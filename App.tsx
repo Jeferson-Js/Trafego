@@ -19,6 +19,19 @@ function App() {
       setError("All fields are required.");
       return;
     }
+
+    // VEO API Key Check
+    // @ts-ignore
+    if (window.aistudio && typeof window.aistudio.hasSelectedApiKey === 'function') {
+      // @ts-ignore
+      const hasKey = await window.aistudio.hasSelectedApiKey();
+      if (!hasKey) {
+        setError("Please select an API key to enable video generation. You can do this by clicking the button in the input form or clicking 'Generate' again. For more details on billing, visit ai.google.dev/gemini-api/docs/billing");
+         // @ts-ignore
+        await window.aistudio.openSelectKey();
+        return;
+      }
+    }
     
     const price = parseFloat(formState.price);
     const goal = parseFloat(formState.goal);
@@ -44,7 +57,11 @@ function App() {
       }
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : 'An unexpected error occurred.';
-      setError(`Failed to generate plan. ${errorMessage}`);
+      if (errorMessage.includes("Requested entity was not found")) {
+        setError("API Key error. Please re-select your API key and try again.");
+      } else {
+        setError(`Failed to generate plan. ${errorMessage}`);
+      }
       setGeneratedPlan(null);
     } finally {
       setIsLoading(false);

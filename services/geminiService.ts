@@ -1,40 +1,79 @@
+
 import { GoogleGenAI, Modality } from "@google/genai";
 import type { GeneratedPlan } from '../types';
 
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  // This is a fallback for development. In a real environment, the key should be set.
-  console.warn("API_KEY environment variable not set.");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY! });
+const getAiClient = () => {
+  const API_KEY = process.env.API_KEY;
+  if (!API_KEY) {
+    throw new Error("API_KEY environment variable not set.");
+  }
+  return new GoogleGenAI({ apiKey: API_KEY });
+};
 
 const generateAdImage = async (prompt: string): Promise<string> => {
+  const ai = getAiClient();
   try {
-    const imagePrompt = `A visually stunning, high-resolution, professional marketing image for an advertisement. The image should feature: ${prompt}`;
+    const imagePrompt = `Create an ultra-realistic, photorealistic, high-resolution 4k professional marketing image. It should look like a photograph taken with a DSLR camera, with natural lighting. The image must feature: ${prompt}`;
     
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
-      contents: {
-        parts: [{ text: imagePrompt }],
-      },
-      config: {
-        responseModalities: [Modality.IMAGE],
-      },
+    const response = await ai.models.generateImages({
+        model: 'imagen-4.0-generate-001',
+        prompt: imagePrompt,
+        config: {
+          numberOfImages: 1,
+          outputMimeType: 'image/jpeg',
+          aspectRatio: '1:1',
+        },
     });
 
-    for (const part of response.candidates[0].content.parts) {
-      if (part.inlineData) {
-        const base64ImageBytes: string = part.inlineData.data;
-        return `data:image/png;base64,${base64ImageBytes}`;
-      }
+    const base64ImageBytes: string | undefined = response.generatedImages[0]?.image.imageBytes;
+    if (!base64ImageBytes) {
+      throw new Error("No image data found in response.");
     }
-    throw new Error("No image data found in response.");
+    return `data:image/jpeg;base64,${base64ImageBytes}`;
   } catch (error) {
     console.error(`Error generating image for prompt "${prompt}":`, error);
     throw error;
   }
+};
+
+const generateSocialVideo = async (niche: string): Promise<string | null> => {
+    const ai = getAiClient();
+    const API_KEY = process.env.API_KEY;
+    try {
+        const videoPrompt = `A short, engaging, dynamic social media video ad about ${niche}. Perfect for TikTok or Instagram Reels.`;
+
+        let operation = await ai.models.generateVideos({
+            model: 'veo-3.1-fast-generate-preview',
+            prompt: videoPrompt,
+            config: {
+                numberOfVideos: 1,
+                resolution: '720p',
+                aspectRatio: '9:16'
+            }
+        });
+
+        while (!operation.done) {
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            operation = await ai.operations.getVideosOperation({ operation: operation });
+        }
+
+        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+        if (!downloadLink) {
+            console.warn("Video generation finished but no download link found.");
+            return null;
+        }
+
+        const response = await fetch(`${downloadLink}&key=${API_KEY}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch video: ${response.statusText}`);
+        }
+        const videoBlob = await response.blob();
+        return URL.createObjectURL(videoBlob);
+    } catch (error) {
+        console.error("Error generating social video:", error);
+        // Don't throw, just return null so the rest of the plan can be displayed.
+        return null; 
+    }
 };
 
 export const generateMarketingPlan = async (niche: string, price: number, goal: number): Promise<GeneratedPlan> => {
@@ -64,6 +103,9 @@ A simple creative idea for ads: short video concepts, image ideas, and hook sugg
 
 ## Social Media Content Ideas
 Provide 3-5 content ideas for Instagram Feed posts and 3-5 ideas for Instagram Stories, tailored to this niche. The ideas should be engaging and designed to build a community and drive sales.
+
+## Niche Hashtags
+Generate a list of 20-30 relevant and trending hashtags for the specified niche, suitable for platforms like Instagram and TikTok. Include a mix of broad, specific, and community-focused hashtags. Format them as a single block of space-separated text (e.g., #hashtag1 #hashtag2).
 
 ## Traffic Investment Plan
 A step-by-step calculation of the exact amount the user must invest in paid traffic to reach their revenue goal, based on product price, the number of sales required, the estimated conversion rate, the number of clicks required, the estimated cost per click, and the final traffic budget.
@@ -96,7 +138,7 @@ A closing summary.
 
 Your tone must be clear, direct, and professional, but also persuasive and practical. Do not use any programming syntax, code blocks, JSON, or other structured formatting within the content of each section. Only flowing text formatted with the markdown headings as specified.
 `;
-
+  const ai = getAiClient();
   try {
     const textResponse = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -108,6 +150,9 @@ Your tone must be clear, direct, and professional, but also persuasive and pract
     if (!textPlan) {
       throw new Error("Failed to generate text plan.");
     }
+
+    // This promise will start the video generation. We won't await it here.
+    const videoPromise = generateSocialVideo(niche);
 
     const visualPrompts: string[] = [];
     const adCopyRegex = /Visual sentence: (.*?)\n/gi;
@@ -127,14 +172,17 @@ Your tone must be clear, direct, and professional, but also persuasive and pract
       }
     }
     
-    return { text: textPlan, images };
+    // Now we await the video generation to complete.
+    const videoUrl = await videoPromise;
+
+    return { text: textPlan, images, videoUrl };
 
   } catch (error) {
     console.error("Error generating marketing plan:", error);
     if (error instanceof Error) {
-        return { text: `Error: An error occurred while generating the plan. Details: ${error.message}`, images: [] };
+        return { text: `Error: An error occurred while generating the plan. Details: ${error.message}`, images: [], videoUrl: null };
     }
-    return { text: "Error: An unknown error occurred while generating the plan.", images: [] };
+    return { text: "Error: An unknown error occurred while generating the plan.", images: [], videoUrl: null };
   }
 };
 
@@ -147,7 +195,7 @@ Here is the text to translate:
 ${text}
 ---
 `;
-
+  const ai = getAiClient();
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
