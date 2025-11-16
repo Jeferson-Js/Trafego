@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "@google/genai";
 
 const API_KEY = process.env.API_KEY;
@@ -30,10 +29,13 @@ A detailed explanation of the niche and why people buy in that niche.
 Explain the ideal audience for this niche.
 
 ## Persuasive Ad Copy
-Three persuasive advertising copies adapted to the provided niche. For each copy, include a visual sentence, an auditory sentence, and a kinesthetic sentence. Format each copy clearly with titles like "Ad Copy 1:", "Ad Copy 2:", etc.
+Four persuasive advertising copies adapted to the provided niche. For each copy, include a visual sentence, an auditory sentence, and a kinesthetic sentence. Format each copy clearly with titles like "Ad Copy 1:", "Ad Copy 2:", etc.
 
 ## Creative Ad Concepts
 A simple creative idea for ads: short video concepts, image ideas, and hook suggestions.
+
+## Social Media Content Ideas
+Provide 3-5 content ideas for Instagram Feed posts and 3-5 ideas for Instagram Stories, tailored to this niche. The ideas should be engaging and designed to build a community and drive sales.
 
 ## Traffic Investment Plan
 A step-by-step calculation of the exact amount the user must invest in paid traffic to reach their revenue goal, based on product price, the number of sales required, the estimated conversion rate, the number of clicks required, the estimated cost per click, and the final traffic budget.
@@ -48,6 +50,9 @@ A clear description of how an app like this should guide the user step-by-step i
 
 ## User Profile System Design
 A simple profile system design for this app: what information the user can save, how results are tracked, and how earnings accumulate inside their personal dashboard.
+
+## Addressing Hidden Objections
+Identify 3 potential "hidden objections" a customer in this niche might have before buying. For each objection, explain it briefly and suggest how to proactively address it in marketing copy or on the product page.
 
 ## A/B Testing Ideas
 Provide three fast A/B test ideas.
@@ -78,5 +83,32 @@ Your tone must be clear, direct, and professional, but also persuasive and pract
         return `Error: An error occurred while generating the plan. Details: ${error.message}`;
     }
     return "Error: An unknown error occurred while generating the plan.";
+  }
+};
+
+export const translateText = async (text: string, language: string): Promise<string> => {
+  const prompt = `Translate the following text into ${language}.
+It is very important that you preserve the original markdown formatting, including the "##" headings for each section. Do not add any extra text, introductions, or explanations. Only provide the direct translation.
+
+Here is the text to translate:
+---
+${text}
+---
+`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+    
+    return response.text;
+
+  } catch (error) {
+    console.error("Error translating text:", error);
+    if (error instanceof Error) {
+        return `Error: An error occurred during translation. Details: ${error.message}`;
+    }
+    return "Error: An unknown error occurred during translation.";
   }
 };

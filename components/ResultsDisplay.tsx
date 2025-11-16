@@ -1,26 +1,43 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { SectionCard } from './SectionCard';
 import { LoadingSpinner } from './LoadingSpinner';
 import { getIconForTitle, InfoIcon, ErrorIcon } from './icons';
 
 interface ResultsDisplayProps {
   plan: string | null;
+  translatedPlan: string | null;
   isLoading: boolean;
+  isTranslating: boolean;
   error: string | null;
+  onTranslate: (language: string) => void;
+  onToggleView: () => void;
+  isShowingOriginal: boolean;
 }
 
-export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ plan, isLoading, error }) => {
+export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ 
+  plan, 
+  translatedPlan,
+  isLoading, 
+  isTranslating,
+  error,
+  onTranslate,
+  onToggleView,
+  isShowingOriginal
+}) => {
+  const [targetLanguage, setTargetLanguage] = useState('');
+
   const sections = useMemo(() => {
-    if (!plan) return [];
+    const contentToParse = isShowingOriginal ? plan : translatedPlan;
+    if (!contentToParse) return [];
     
-    return plan.split('\n## ').filter(s => s.trim() !== '').map(sectionText => {
+    return contentToParse.split('\n## ').filter(s => s.trim() !== '').map(sectionText => {
       const parts = sectionText.split('\n');
       const title = parts[0].trim().replace('## ', '');
       const content = parts.slice(1).join('\n').trim();
       return { title, content };
     });
-  }, [plan]);
+  }, [plan, translatedPlan, isShowingOriginal]);
 
   if (isLoading) {
     return (
@@ -62,6 +79,41 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ plan, isLoading,
 
   return (
     <div className="space-y-6">
+      <div className="bg-white/5 backdrop-blur-md p-4 rounded-xl shadow-lg border border-white/10 flex flex-wrap items-center gap-3">
+        <input
+          type="text"
+          placeholder="Translate to... (e.g., Spanish)"
+          value={targetLanguage}
+          onChange={(e) => setTargetLanguage(e.target.value)}
+          disabled={isTranslating}
+          className="flex-grow bg-white/10 border-gray-600 rounded-md shadow-sm py-2 px-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition min-w-[200px]"
+        />
+        <button
+          onClick={() => onTranslate(targetLanguage)}
+          disabled={!targetLanguage.trim() || isTranslating}
+          className="flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 focus:ring-offset-gray-900 transition-all"
+        >
+          {isTranslating ? (
+            <>
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Translating...
+            </>
+          ) : (
+            'Translate'
+          )}
+        </button>
+        {translatedPlan && (
+          <button
+            onClick={onToggleView}
+            className="py-2 px-4 border border-gray-500 rounded-md shadow-sm text-sm font-medium text-gray-200 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 focus:ring-offset-gray-900 transition-all"
+          >
+            {isShowingOriginal ? 'Show Translation' : 'Show Original'}
+          </button>
+        )}
+      </div>
       {sections.map((section) => (
         <SectionCard key={section.title} title={section.title} icon={getIconForTitle(section.title)}>
           {section.content}

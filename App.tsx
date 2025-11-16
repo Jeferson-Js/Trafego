@@ -2,14 +2,17 @@
 import React, { useState, useCallback } from 'react';
 import { InputForm } from './components/InputForm';
 import { ResultsDisplay } from './components/ResultsDisplay';
-import { generateMarketingPlan } from './services/geminiService';
+import { generateMarketingPlan, translateText } from './services/geminiService';
 import type { FormState } from './types';
 
 function App() {
   const [formState, setFormState] = useState<FormState>({ niche: 'digital art prints', price: '25', goal: '1000' });
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isTranslating, setIsTranslating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedPlan, setGeneratedPlan] = useState<string | null>(null);
+  const [translatedPlan, setTranslatedPlan] = useState<string | null>(null);
+  const [isShowingOriginal, setIsShowingOriginal] = useState<boolean>(true);
 
   const handleGenerate = useCallback(async () => {
     if (!formState.niche || !formState.price || !formState.goal) {
@@ -28,6 +31,8 @@ function App() {
     setIsLoading(true);
     setError(null);
     setGeneratedPlan(null);
+    setTranslatedPlan(null);
+    setIsShowingOriginal(true);
 
     try {
       const plan = await generateMarketingPlan(formState.niche, price, goal);
@@ -45,6 +50,32 @@ function App() {
       setIsLoading(false);
     }
   }, [formState]);
+  
+  const handleTranslate = useCallback(async (language: string) => {
+    if (!generatedPlan || !language) return;
+
+    setIsTranslating(true);
+    setError(null);
+
+    try {
+      const translation = await translateText(generatedPlan, language);
+      if (translation.startsWith("Error:")) {
+        setError(translation);
+      } else {
+        setTranslatedPlan(translation);
+        setIsShowingOriginal(false);
+      }
+    } catch (e) {
+      const errorMessage = e instanceof Error ? e.message : 'An unexpected error occurred.';
+      setError(`Failed to translate. ${errorMessage}`);
+    } finally {
+      setIsTranslating(false);
+    }
+  }, [generatedPlan]);
+
+  const handleToggleView = () => {
+    setIsShowingOriginal(prev => !prev);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-blue-900 text-white p-4 sm:p-6 lg:p-8">
@@ -70,8 +101,13 @@ function App() {
           <div className="lg:col-span-2">
             <ResultsDisplay
               plan={generatedPlan}
+              translatedPlan={translatedPlan}
               isLoading={isLoading}
+              isTranslating={isTranslating}
               error={error}
+              onTranslate={handleTranslate}
+              onToggleView={handleToggleView}
+              isShowingOriginal={isShowingOriginal}
             />
           </div>
         </main>
