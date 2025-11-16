@@ -13,5 +13,4 @@ export interface PlanSection {
 export interface GeneratedPlan {
   text: string;
   images: string[];
-  videoUrl: string | null;
 }

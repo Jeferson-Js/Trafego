@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Modality } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import type { GeneratedPlan } from '../types';
 
 const getAiClient = () => {
@@ -34,46 +34,6 @@ const generateAdImage = async (prompt: string): Promise<string> => {
     console.error(`Error generating image for prompt "${prompt}":`, error);
     throw error;
   }
-};
-
-const generateSocialVideo = async (niche: string): Promise<string | null> => {
-    const ai = getAiClient();
-    const API_KEY = process.env.API_KEY;
-    try {
-        const videoPrompt = `A short, engaging, dynamic social media video ad about ${niche}. Perfect for TikTok or Instagram Reels.`;
-
-        let operation = await ai.models.generateVideos({
-            model: 'veo-3.1-fast-generate-preview',
-            prompt: videoPrompt,
-            config: {
-                numberOfVideos: 1,
-                resolution: '720p',
-                aspectRatio: '9:16'
-            }
-        });
-
-        while (!operation.done) {
-            await new Promise(resolve => setTimeout(resolve, 10000));
-            operation = await ai.operations.getVideosOperation({ operation: operation });
-        }
-
-        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-        if (!downloadLink) {
-            console.warn("Video generation finished but no download link found.");
-            return null;
-        }
-
-        const response = await fetch(`${downloadLink}&key=${API_KEY}`);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch video: ${response.statusText}`);
-        }
-        const videoBlob = await response.blob();
-        return URL.createObjectURL(videoBlob);
-    } catch (error) {
-        console.error("Error generating social video:", error);
-        // Don't throw, just return null so the rest of the plan can be displayed.
-        return null; 
-    }
 };
 
 export const generateMarketingPlan = async (niche: string, price: number, goal: number): Promise<GeneratedPlan> => {
@@ -151,9 +111,6 @@ Your tone must be clear, direct, and professional, but also persuasive and pract
       throw new Error("Failed to generate text plan.");
     }
 
-    // This promise will start the video generation. We won't await it here.
-    const videoPromise = generateSocialVideo(niche);
-
     const visualPrompts: string[] = [];
     const adCopyRegex = /Visual sentence: (.*?)\n/gi;
     let match;
@@ -172,17 +129,14 @@ Your tone must be clear, direct, and professional, but also persuasive and pract
       }
     }
     
-    // Now we await the video generation to complete.
-    const videoUrl = await videoPromise;
-
-    return { text: textPlan, images, videoUrl };
+    return { text: textPlan, images };
 
   } catch (error) {
     console.error("Error generating marketing plan:", error);
     if (error instanceof Error) {
-        return { text: `Error: An error occurred while generating the plan. Details: ${error.message}`, images: [], videoUrl: null };
+        return { text: `Error: An error occurred while generating the plan. Details: ${error.message}`, images: [] };
     }
-    return { text: "Error: An unknown error occurred while generating the plan.", images: [], videoUrl: null };
+    return { text: "Error: An unknown error occurred while generating the plan.", images: [] };
   }
 };
 

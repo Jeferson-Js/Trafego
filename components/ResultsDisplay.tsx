@@ -1,8 +1,7 @@
-
 import React, { useMemo, useState } from 'react';
 import { SectionCard } from './SectionCard';
 import { LoadingSpinner } from './LoadingSpinner';
-import { getIconForTitle, InfoIcon, ErrorIcon, VideoIcon } from './icons';
+import { getIconForTitle, InfoIcon, ErrorIcon } from './icons';
 import type { GeneratedPlan } from '../types';
 
 interface ResultsDisplayProps {
@@ -45,7 +44,7 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
       <div className="flex flex-col items-center justify-center h-full min-h-[400px] bg-white/5 backdrop-blur-md rounded-xl p-8 border border-white/10">
         <LoadingSpinner />
         <p className="mt-4 text-lg text-gray-300">CopyCraft AI is crafting your plan...</p>
-        <p className="mt-2 text-sm text-gray-400 text-center">This includes generating ultra-realistic images and a short video, which may take a few minutes.</p>
+        <p className="mt-2 text-sm text-gray-400 text-center">This includes generating ultra-realistic images, which may take a moment.</p>
       </div>
     );
   }
@@ -72,7 +71,7 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
         </div>
         <h3 className="text-xl font-bold text-white">Ready to Craft Your Strategy?</h3>
         <p className="mt-2 text-center text-gray-300 max-w-sm">
-          Fill in your product details on the left and click "Generate" to receive your personalized marketing plan, complete with images and a video.
+          Fill in your product details on the left and click "Generate" to receive your personalized marketing plan, complete with images.
         </p>
       </div>
     );
@@ -115,19 +114,6 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
           </button>
         )}
       </div>
-
-      {plan.videoUrl && isShowingOriginal && (
-        <SectionCard title="Generated Social Media Video" icon={<VideoIcon />}>
-          <video
-            src={plan.videoUrl}
-            controls
-            className="w-full rounded-lg shadow-lg border-2 border-blue-500/50"
-            aria-label="Generated social media video ad"
-          >
-            Your browser does not support the video tag.
-          </video>
-        </SectionCard>
-      )}
 
       {sections.map((section) => {
         if (section.title.toLowerCase().includes('ad copy') && plan?.images && plan.images.length > 0 && isShowingOriginal) {
